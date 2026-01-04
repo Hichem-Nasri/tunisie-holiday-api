@@ -7,10 +7,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import tn.tunisieconnect.auth.dto.AuthResponse;
-import tn.tunisieconnect.auth.dto.LoginRequest;
-import tn.tunisieconnect.auth.dto.RegisterRequest;
+import tn.tunisieconnect.auth.dto.*;
 import tn.tunisieconnect.auth.service.AuthService;
+import tn.tunisieconnect.auth.service.PasswordResetService;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -18,6 +17,8 @@ import tn.tunisieconnect.auth.service.AuthService;
 public class AuthController {
 
     private final AuthService authService;
+
+    private final PasswordResetService passwordResetService;
 
     // 🔐 REGISTER
     @PostMapping("/register")
@@ -34,5 +35,21 @@ public class AuthController {
             @Valid @RequestBody LoginRequest request
     ) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Void> forgotPassword(
+            @RequestBody ForgotPasswordRequest request
+    ) {
+        passwordResetService.forgotPassword(request.email());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(
+            @RequestBody ResetPasswordRequest request
+    ) {
+        passwordResetService.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.ok().build();
     }
 }

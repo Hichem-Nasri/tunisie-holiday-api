@@ -6,7 +6,9 @@ import org.springframework.stereotype.Service;
 import tn.tunisieconnect.auth.dto.AuthResponse;
 import tn.tunisieconnect.auth.dto.LoginRequest;
 import tn.tunisieconnect.auth.dto.RegisterRequest;
+import tn.tunisieconnect.auth.security.JwtService;
 import tn.tunisieconnect.auth.service.AuthService;
+import tn.tunisieconnect.mail.EmailService;
 import tn.tunisieconnect.user.entity.User;
 import tn.tunisieconnect.user.entity.UserType;
 import tn.tunisieconnect.user.repository.UserRepository;
@@ -17,7 +19,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    // private final JwtService jwtService; // à venir
+    private final JwtService jwtService;
+    private final EmailService emailService;
 
     @Override
     public void register(RegisterRequest request) {
@@ -29,6 +32,7 @@ public class AuthServiceImpl implements AuthService {
         User user = User.builder().name(request.name()).email(request.email()).password(passwordEncoder.encode(request.password())).type(UserType.valueOf(request.type().toUpperCase())).enabled(true).build();
 
         userRepository.save(user);
+        emailService.sendWelcomeEmail(request.email(), request.name());
     }
 
     @Override
@@ -40,8 +44,7 @@ public class AuthServiceImpl implements AuthService {
             throw new RuntimeException("Invalid credentials");
         }
 
-        // 🔐 JWT plus tard
-        String token = "JWT_TOKEN_MOCK";
+        String token = jwtService.generateToken(user);
 
         return new AuthResponse(token);
     }
