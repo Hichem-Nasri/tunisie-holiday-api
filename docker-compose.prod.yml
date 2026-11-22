@@ -1,3 +1,5 @@
+name: tunisie-holidays
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -8,6 +10,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Définissez DB_PASSWORD dans .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    mem_limit: 512m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-tunisie} -d tunisie_holidays"]
       interval: 5s
@@ -35,6 +38,7 @@ services:
       AMADEUS_CLIENT_ID: ${AMADEUS_CLIENT_ID:-}
       AMADEUS_CLIENT_SECRET: ${AMADEUS_CLIENT_SECRET:-}
       JAVA_TOOL_OPTIONS: -Xmx512m
+    mem_limit: 900m
 
   frontend:
     build: ../tunisie-holiday-front
@@ -42,7 +46,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "80:80"
+      - "${HTTP_PORT:-8088}:80"
 
 volumes:
   pgdata:

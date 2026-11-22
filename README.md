@@ -23,15 +23,18 @@ docker compose up --build
 
 ## Déploiement sur un serveur (VPS Ubuntu/Debian)
 
-Connectez-vous en SSH puis :
+Le déploiement cohabite avec d'autres applications : tout est isolé dans `/opt/tunisie-holidays`,
+le projet Docker `tunisie-holidays`, et un seul port HTTP (8088 par défaut). Les ports 80/443 et les
+serveurs web existants ne sont pas touchés.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Hichem-Nasri/tunisie-holiday-api/master/deploy.sh -o deploy.sh
-sudo bash deploy.sh 2.25.11.27
+sudo bash deploy.sh --check              # inspection sans modification
+sudo bash deploy.sh 2.25.11.27 8088      # déploiement sur le port 8088
 ```
 
-Le script installe Docker si besoin, clone les deux dépôts dans `/opt/tunisie-holidays`, génère un `.env` avec des secrets aléatoires,
-puis lance PostgreSQL, l'API et le site (port 80). Seul le port 80 est exposé. Pour mettre à jour, relancez la même commande.
+Pour mettre à jour, relancez la commande de déploiement. Pour exposer le site sur un domaine via le
+nginx déjà présent, ajoutez un `server` qui fait `proxy_pass http://127.0.0.1:8088;`.
 
 ## Démarrage en développement
 
