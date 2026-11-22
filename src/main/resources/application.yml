@@ -1,0 +1,56 @@
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: tunisie-holidays-api
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/tunisie_holidays}
+    username: ${DB_USER:tunisie}
+    password: ${DB_PASSWORD:tunisie}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: ${FLYWAY_LOCATIONS:classpath:db/migration,classpath:db/demo}
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:EtMfhh7m/ehFY/3d+8gRkB79ah695XS/a5o6Y97LfuJEmMlfh4cvHIR4J4IDnl3n}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:720}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+  bootstrap:
+    admin-email: ${ADMIN_EMAIL:admin@tunisie-holidays.com}
+    admin-password: ${ADMIN_PASSWORD:Admin@2026!}
+    demo-partner-password: ${DEMO_PARTNER_PASSWORD:Partner@2026!}
+  amadeus:
+    enabled: ${AMADEUS_ENABLED:false}
+    base-url: ${AMADEUS_BASE_URL:https://test.api.amadeus.com}
+    client-id: ${AMADEUS_CLIENT_ID:}
+    client-secret: ${AMADEUS_CLIENT_SECRET:}
+    max-results: ${AMADEUS_MAX_RESULTS:30}
+    booking-url-template: ${AMADEUS_BOOKING_URL_TEMPLATE:https://www.kayak.fr/flights/{origin}-{destination}/{departureDate}/{returnDate}/{adults}adults}
