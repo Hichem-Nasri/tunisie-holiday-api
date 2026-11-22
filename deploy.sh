@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'echo "ERREUR ligne $LINENO : $BASH_COMMAND" >&2' ERR
 
 usage() {
   echo "Usage :"
@@ -121,7 +122,12 @@ ENV
   chmod 600 .env
   NEW_ENV=1
 fi
-HTTP_PORT="$(grep '^HTTP_PORT=' .env | cut -d= -f2)"
+if ! grep -q '^HTTP_PORT=' .env; then
+  echo "HTTP_PORT=${HTTP_PORT}" >> .env
+  sed -i "s#^CORS_ALLOWED_ORIGINS=.*#CORS_ALLOWED_ORIGINS=http://${HOST}:${HTTP_PORT}#" .env
+fi
+HTTP_PORT="$(grep '^HTTP_PORT=' .env | tail -1 | cut -d= -f2)"
+echo "==> Port HTTP : ${HTTP_PORT}"
 
 if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
   echo "==> Pare-feu : ouverture du port $HTTP_PORT"
