@@ -21,6 +21,18 @@ docker compose up --build
 - Site : http://localhost:8081
 - API + Swagger : http://localhost:8080/swagger-ui.html
 
+## Déploiement sur un serveur (VPS Ubuntu/Debian)
+
+Connectez-vous en SSH puis :
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Hichem-Nasri/tunisie-holiday-api/master/deploy.sh -o deploy.sh
+sudo bash deploy.sh 2.25.11.27
+```
+
+Le script installe Docker si besoin, clone les deux dépôts dans `/opt/tunisie-holidays`, génère un `.env` avec des secrets aléatoires,
+puis lance PostgreSQL, l'API et le site (port 80). Seul le port 80 est exposé. Pour mettre à jour, relancez la même commande.
+
 ## Démarrage en développement
 
 ```bash
