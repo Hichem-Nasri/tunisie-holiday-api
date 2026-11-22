@@ -41,7 +41,7 @@ FRONT_REPO="https://github.com/Hichem-Nasri/tunisie-holiday-front.git"
 if [ -z "$HOST" ]; then usage; exit 1; fi
 if [ "$(id -u)" -ne 0 ]; then echo "Lancez ce script avec sudo ou en root."; exit 1; fi
 
-if [ -d "$BASE_DIR/tunisie-holiday-api/.git" ] && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^tunisie-holidays-frontend'; then
+if [ -d "$BASE_DIR/tunisie-holiday-api/.git" ] && docker ps --format '{{.Names}}' 2>/dev/null | grep -Eq "^tunisie-holidays[-_]frontend"; then
   FIRST_RUN=0
 else
   FIRST_RUN=1
@@ -129,7 +129,7 @@ if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
 fi
 
 echo "==> Construction et démarrage (premier lancement : 5 à 10 minutes)"
-$COMPOSE -f docker-compose.prod.yml up -d --build
+$COMPOSE -p tunisie-holidays -f docker-compose.prod.yml up -d --build
 
 echo "==> Attente du démarrage de l'API"
 READY=0
@@ -143,7 +143,7 @@ if [ "$READY" = "1" ]; then
   echo "Site en ligne : http://${HOST}:${HTTP_PORT}"
 else
   echo "Les conteneurs tournent mais l'API ne répond pas encore."
-  echo "Logs : cd $BASE_DIR/tunisie-holiday-api && $COMPOSE -f docker-compose.prod.yml logs -f backend"
+  echo "Logs : cd $BASE_DIR/tunisie-holiday-api && $COMPOSE -p tunisie-holidays -f docker-compose.prod.yml logs -f backend"
 fi
 if [ "$NEW_ENV" = "1" ]; then
   echo
