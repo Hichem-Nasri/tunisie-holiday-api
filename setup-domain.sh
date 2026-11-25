@@ -30,11 +30,76 @@ OWNER80="$(ss -ltnpH '( sport = :80 )' 2>/dev/null | head -1 || true)"
 echo "==> Port 80 : ${OWNER80:-libre}"
 
 if echo "$OWNER80" | grep -q 'docker-proxy'; then
-  echo
-  echo "Le port 80 est tenu par un conteneur Docker (reverse proxy de l'autre application)."
-  echo "Pour ne rien casser, ce script s'arrête ici. Envoyez cette sortie :"
-  docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}'
-  exit 1
+  PROXY="$(docker ps --filter publish=80 --format '{{.Names}}' | head -1)"
+  PROXY_IMAGE="$(docker inspect -f '{{.Config.Image}}' "$PROXY")"
+  if ! echo "$PROXY_IMAGE" | grep -qi caddy; then
+    echo "Le port 80 est tenu par le conteneur $PROXY ($PROXY_IMAGE), qui n'est pas Caddy."
+    echo "Ce script s'arrête sans rien modifier. Envoyez cette sortie."
+    exit 1
+  fi
+  echo "==> Caddy détecté dans le conteneur $PROXY"
+
+  CADDYFILE="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}' "$PROXY")"
+  if [ -z "$CADDYFILE" ]; then
+    CADDYDIR="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/etc/caddy"}}{{.Source}}{{end}}{{end}}' "$PROXY")"
+    [ -n "$CADDYDIR" ] && CADDYFILE="$CADDYDIR/Caddyfile"
+  fi
+  if [ -z "$CADDYFILE" ] || [ ! -f "$CADDYFILE" ]; then
+    echo "Le Caddyfile de $PROXY n'est pas monté depuis le serveur : impossible de l'étendre sans reconstruire l'autre application."
+    docker inspect -f '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}' "$PROXY"
+    exit 1
+  fi
+  echo "==> Caddyfile : $CADDYFILE"
+
+  GATEWAY="$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.Gateway}} {{end}}' "$PROXY" | awk '{print $1}')"
+  SUBNET="$(docker network inspect -f '{{range .IPAM.Config}}{{.Subnet}} {{end}}' "$(docker inspect -f '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}' "$PROXY" | awk '{print $1}')" | awk '{print $1}')"
+  echo "==> Caddy joindra l'application via ${GATEWAY}:${APP_PORT}"
+  if ! docker exec "$PROXY" wget -q -T 5 -O /dev/null "http://${GATEWAY}:${APP_PORT}/api/destinations" 2>/dev/null; then
+    if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active" && [ -n "$SUBNET" ]; then
+      ufw allow from "$SUBNET" to any port "$APP_PORT" proto tcp >/dev/null
+    fi
+    if ! docker exec "$PROXY" wget -q -T 5 -O /dev/null "http://${GATEWAY}:${APP_PORT}/api/destinations" 2>/dev/null; then
+      echo "Caddy n'arrive pas à joindre ${GATEWAY}:${APP_PORT}. Rien n'a été modifié."
+      exit 1
+    fi
+  fi
+
+  if grep -q "${DOMAIN}" "$CADDYFILE"; then
+    echo "==> Le domaine est déjà présent dans le Caddyfile, aucune modification."
+  else
+    BACKUP="${CADDYFILE}.bak-$(date +%Y%m%d-%H%M%S)"
+    cp -p "$CADDYFILE" "$BACKUP"
+    echo "==> Sauvegarde : $BACKUP"
+    cat >> "$CADDYFILE" <<CONF
+
+${DOMAIN}, www.${DOMAIN} {
+	encode gzip
+	reverse_proxy ${GATEWAY}:${APP_PORT}
+}
+CONF
+    if ! docker exec "$PROXY" caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile >/tmp/caddy-validate.log 2>&1; then
+      cat "$BACKUP" > "$CADDYFILE"
+      echo "Configuration Caddy invalide : le Caddyfile a été restauré tel quel."
+      tail -5 /tmp/caddy-validate.log
+      exit 1
+    fi
+  fi
+  docker exec -w /etc/caddy "$PROXY" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+  echo "==> Caddy rechargé (les autres sites ne sont pas interrompus). Obtention du certificat HTTPS…"
+
+  ENV_FILE="$(dirname "$(readlink -f "$0")")/.env"
+  [ -f "$ENV_FILE" ] && sed -i "s#^CORS_ALLOWED_ORIGINS=.*#CORS_ALLOWED_ORIGINS=https://${DOMAIN},https://www.${DOMAIN}#" "$ENV_FILE"
+
+  for i in $(seq 1 24); do
+    if curl -fs "https://${DOMAIN}/api/destinations" >/dev/null 2>&1; then
+      echo
+      echo "Site en ligne : https://${DOMAIN}"
+      exit 0
+    fi
+    sleep 5
+  done
+  echo "Caddy est configuré ; le certificat peut prendre encore une minute. Suivi : docker logs --tail 30 $PROXY"
+  exit 0
 fi
 
 if echo "$OWNER80" | grep -Eq 'apache2|httpd'; then
